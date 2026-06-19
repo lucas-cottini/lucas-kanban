@@ -150,11 +150,19 @@ function App() {
     rec.interimResults = false;
     rec.onstart = function() { setListening(true); addLog("🎤 Gravando..."); };
     rec.onend = function() { setListening(false); };
+    // Add grammar hints for better recognition
+    if (window.SpeechGrammarList || window.webkitSpeechGrammarList) {
+      const SGL = window.SpeechGrammarList || window.webkitSpeechGrammarList;
+      const grammarList = new SGL();
+      const keywords = '#JSGF V1.0; grammar kanban; public <word> = card | backlog | fazendo | gargalo | feito | semana | criar | mover | deletar | alta | média | prioridade | concluído | fechar | mover para | passar para ;';
+      grammarList.addFromString(keywords, 1);
+      rec.grammars = grammarList;
+    }
     rec.onresult = function(e) {
       const transcript = e.results[0][0].transcript;
       addLog("🎤 Reconhecido: " + transcript);
+      // Show in field for confirmation — don't auto-execute
       setCommand(transcript);
-      handleCommand(transcript);
     };
     rec.onerror = function(e) { setListening(false); addLog("❌ Erro voz: " + e.error, "error"); };
     recognitionRef.current = rec;
@@ -406,7 +414,7 @@ function App() {
           value:command,
           onInput:function(e){setCommand(e.target.value);},
           onKeyDown:function(e){if(e.key==='Enter')handleCommand(command);},
-          placeholder:listening?'Ouvindo...':processing?'Processando...':'Fale 🎤 ou digite aqui...',
+          placeholder:listening?'Ouvindo... (solte para confirmar)':processing?'Processando...':'Fale 🎤 ou digite · confirme com Enviar',
           disabled:listening||processing,
           style:{flex:1,background:'transparent',border:'none',outline:'none',color:'#1E293B',fontSize:14,fontFamily:'inherit'}
         }),
