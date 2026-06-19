@@ -225,13 +225,16 @@ function App() {
         addLog("▶️ " + action.type + " " + (action.taskId || (action.task && action.task.title) || action.title || ""));
 
         if (action.type === "CREATE") {
+          const newColId = action.task.column_id || action.task.column || "semana";
+          const colTasksForNew = newTasks.filter(function(x){ return x.column_id === newColId; });
+          const minPosNew = colTasksForNew.length > 0 ? Math.min.apply(null, colTasksForNew.map(function(t){ return t.position || 0; })) : 0;
           const t = {
             id: "task-" + Date.now(),
             title: action.task.title,
-            column_id: action.task.column_id || action.task.column || "semana",
+            column_id: newColId,
             priority: action.task.priority || "normal",
             tags: action.task.tags || [],
-            position: newTasks.filter(function(x) { return x.column_id === (action.task.column_id || action.task.column || "semana"); }).length,
+            position: minPosNew - 1,
           };
           addLog("⬆️ Inserindo: " + t.title + " em " + t.column_id);
           try {
@@ -296,12 +299,40 @@ function App() {
     setTasks(function(prev) { return prev.map(function(t) { return t.id === taskId ? Object.assign({}, t, { column_id: toCol }) : t; }); });
     setSelected(null);
     try {
+      // Get current min position in target column and go above it
+      const colTasks = tasks.filter(function(t){ return t.column_id === toCol; });
+      const minPos = colTasks.length > 0 ? Math.min.apply(null, colTasks.map(function(t){ return t.position || 0; })) : 0;
+      const newPos = minPos - 1;
       await sbFetch("kanban_tasks?id=eq." + taskId, {
         method: "PATCH",
-        body: JSON.stringify({ column_id: toCol }),
+        body: JSON.stringify({ column_id: toCol, position: newPos }),
       });
     } catch(e) { addLog("❌ Erro ao mover: " + e.message, "error"); }
     setSyncing(false);
+  }
+
+  async function reorderTask(taskId, direction) {
+    const task = tasks.find(function(t){ return t.id === taskId; });
+    if (!task) return;
+    const colTasks = tasks.filter(function(t){ return t.column_id === task.column_id; })
+      .sort(function(a,b){ return (a.position||0)-(b.position||0); });
+    const idx = colTasks.findIndex(function(t){ return t.id === taskId; });
+    const swapIdx = direction === 'up' ? idx - 1 : idx + 1;
+    if (swapIdx < 0 || swapIdx >= colTasks.length) return;
+    const swapTask = colTasks[swapIdx];
+    const posA = task.position || 0;
+    const posB = swapTask.position || 0;
+    setTasks(function(prev){
+      return prev.map(function(t){
+        if (t.id === taskId) return Object.assign({},t,{position:posB});
+        if (t.id === swapTask.id) return Object.assign({},t,{position:posA});
+        return t;
+      });
+    });
+    try {
+      await sbFetch("kanban_tasks?id=eq."+taskId, { method:"PATCH", body:JSON.stringify({position:posB}) });
+      await sbFetch("kanban_tasks?id=eq."+swapTask.id, { method:"PATCH", body:JSON.stringify({position:posA}) });
+    } catch(e) { addLog("❌ Reorder erro: "+e.message,"error"); }
   }
 
   const selectedTask = tasks.find(function(t) { return t.id === selected; });
@@ -424,7 +455,17 @@ function App() {
                   task.priority==='alta' && h('span',{style:{fontSize:9,fontWeight:600,background:'#FEE2E2',color:'#B91C1C',borderRadius:4,padding:'1px 6px'}},'🔥 Alta'),
                   task.priority==='media' && h('span',{style:{fontSize:9,fontWeight:600,background:'#FEF3C7',color:'#92400E',borderRadius:4,padding:'1px 6px'}},'⚡ Média')
                 ),
-                h('div',{style:{fontSize:12,color:'#1E293B',lineHeight:1.4}},task.title)
+                h('div',{style:{fontSize:12,color:'#1E293B',lineHeight:1.4}},task.title),
+                h('div',{style:{display:'flex',gap:4,marginTop:6,justifyContent:'flex-end'}},
+                  h('button',{
+                    onClick:function(e){e.stopPropagation();reorderTask(task.id,'up');},
+                    style:{background:'none',border:'1px solid #E2E8F0',borderRadius:4,padding:'1px 6px',cursor:'pointer',fontSize:11,color:'#94A3B8',lineHeight:1}
+                  },'↑'),
+                  h('button',{
+                    onClick:function(e){e.stopPropagation();reorderTask(task.id,'down');},
+                    style:{background:'none',border:'1px solid #E2E8F0',borderRadius:4,padding:'1px 6px',cursor:'pointer',fontSize:11,color:'#94A3B8',lineHeight:1}
+                  },'↓')
+                )
               );
             })
           )
