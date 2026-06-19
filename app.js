@@ -197,7 +197,10 @@ Responda SOMENTE com JSON válido (sem markdown):
       const data = await res.json();
       const text = data.content?.find(b => b.type === "text")?.text || "{}";
       addLog("📦 Resposta: " + text.slice(0, 100));
-      const result = JSON.parse(text.replace(/```json|```/g, "").trim());
+      const jsonMatch = text.match(/\{[\s\S]*\}/); 
+      const cleaned = jsonMatch ? jsonMatch[0] : text;
+      addLog('🧹 Parsed: ' + cleaned.slice(0, 60));
+      const result = JSON.parse(cleaned);
 
       let newTasks = [...tasks];
       for (const action of result.actions || []) {
