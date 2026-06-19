@@ -165,7 +165,7 @@ Colunas: backlog, semana, fazendo, gargalo, feito
 Prioridades: alta, media, normal
 Tags: "B2B Farming", "B2B Hunting", "Fundadores", "Pessoal", "Relacionamento B2B", "Conselho"
 
-Responda SOMENTE com JSON válido (sem markdown):
+Responda SOMENTE com JSON puro. NUNCA use markdown, NUNCA use backticks, NUNCA escreva ```json. Apenas o objeto JSON diretamente:
 {"actions":[...],"message":"confirmação"}`;
 
     try {
@@ -207,7 +207,13 @@ Responda SOMENTE com JSON válido (sem markdown):
         addLog(`⚙️ Ação: ${action.type}`);
         if (action.type === "CREATE") {
           const t = { ...action.task, id: "task-" + Date.now(), tags: action.task.tags || [], position: newTasks.filter(x => x.column_id === action.task.column_id).length };
-          await sbFetch("kanban_tasks", { method: "POST", headers: { "Prefer": "resolution=merge-duplicates,return=representation" }, body: JSON.stringify({ ...t, tags: JSON.stringify(t.tags) }) });
+          addLog("⬆️ Inserindo no Supabase: " + t.title);
+          try {
+            const inserted = await sbFetch("kanban_tasks", { method: "POST", headers: { "Prefer": "resolution=merge-duplicates,return=representation" }, body: JSON.stringify({ ...t, tags: JSON.stringify(t.tags) }) });
+            addLog("✅ Supabase ok: " + JSON.stringify(inserted).slice(0,80));
+          } catch(sbErr) {
+            addLog("❌ Supabase erro CREATE: " + sbErr.message, "error");
+          }
           newTasks.push(t);
         } else if (action.type === "MOVE") {
           await sbFetch(`kanban_tasks?id=eq.${action.taskId}`, { method: "PATCH", body: JSON.stringify({ column_id: action.to }) });
