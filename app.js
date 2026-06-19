@@ -213,7 +213,13 @@ function App() {
 
       for (let i = 0; i < actions.length; i++) {
         const action = actions[i];
-        addLog("▶️ " + action.type + " " + (action.taskId || (action.task && action.task.title) || ""));
+        // Normalize: accept both 'type' and 'action' fields
+        if (!action.type && action.action) action.type = action.action.toUpperCase();
+        // Also normalize task fields
+        if (action.type && action.type !== action.type.toUpperCase()) action.type = action.type.toUpperCase();
+        addLog("▶️ " + action.type + " " + (action.taskId || (action.task && action.task.title) || (action.title) || ""));
+        // If task fields are at root level, wrap them
+        if (!action.task && action.title) action.task = { title: action.title, column_id: action.column_id || action.column || 'semana', priority: action.priority || 'normal', tags: action.tags || [] };
 
         if (action.type === "CREATE") {
           const t = {
