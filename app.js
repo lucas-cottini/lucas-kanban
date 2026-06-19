@@ -213,13 +213,16 @@ function App() {
 
       for (let i = 0; i < actions.length; i++) {
         const action = actions[i];
-        // Normalize: accept both 'type' and 'action' fields
-        if (!action.type && action.action) action.type = action.action.toUpperCase();
-        // Also normalize task fields
-        if (action.type && action.type !== action.type.toUpperCase()) action.type = action.type.toUpperCase();
-        addLog("▶️ " + action.type + " " + (action.taskId || (action.task && action.task.title) || (action.title) || ""));
+        // Normalize type field
+        if (!action.type && action.action) action.type = action.action;
+        action.type = (action.type || '').toUpperCase();
+        // Normalize taskId field
+        if (!action.taskId) action.taskId = action.task_id || action.id;
+        // Normalize 'to' field for MOVE
+        if (!action.to) action.to = action.target_column || action.column_id || action.column;
         // If task fields are at root level, wrap them
         if (!action.task && action.title) action.task = { title: action.title, column_id: action.column_id || action.column || 'semana', priority: action.priority || 'normal', tags: action.tags || [] };
+        addLog("▶️ " + action.type + " " + (action.taskId || (action.task && action.task.title) || action.title || ""));
 
         if (action.type === "CREATE") {
           const t = {
