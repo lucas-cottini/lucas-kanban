@@ -122,6 +122,13 @@ function App() {
           }
           data = await sbFetch("kanban_tasks?order=position.asc");
         }
+        // Normalize positions per column on load
+        var byCol = {};
+        data.forEach(function(t){ if(!byCol[t.column_id]) byCol[t.column_id]=[]; byCol[t.column_id].push(t); });
+        Object.keys(byCol).forEach(function(col){
+          byCol[col].sort(function(a,b){return (a.position||0)-(b.position||0);});
+          byCol[col].forEach(function(t,i){ t.position = i; });
+        });
         setTasks(data.map(function(t) { return Object.assign({}, t, { tags: parseTags(t.tags) }); }));
         addLog("✅ " + data.length + " cards carregados");
       } catch(e) {
@@ -322,24 +329,35 @@ function App() {
   async function reorderTask(taskId, direction) {
     const task = tasks.find(function(t){ return t.id === taskId; });
     if (!task) return;
-    const colTasks = tasks.filter(function(t){ return t.column_id === task.column_id; })
-      .sort(function(a,b){ return (a.position||0)-(b.position||0); });
+    // Sort column tasks by position, assigning sequential positions if needed
+    const colTasks = tasks
+      .filter(function(t){ return t.column_id === task.column_id; })
+      .sort(function(a,b){ return (a.position||0)-(b.position||0); })
+      .map(function(t,i){ return Object.assign({},t,{position:i}); }); // normalize to 0,1,2...
     const idx = colTasks.findIndex(function(t){ return t.id === taskId; });
+    if (idx === -1) return;
     const swapIdx = direction === 'up' ? idx - 1 : idx + 1;
     if (swapIdx < 0 || swapIdx >= colTasks.length) return;
     const swapTask = colTasks[swapIdx];
-    const posA = task.position || 0;
-    const posB = swapTask.position || 0;
+    // Swap positions
+    const posA = idx;
+    const posB = swapIdx;
+    addLog("↕️ Trocando posição " + posA + " com " + posB);
+    // Update local state with all normalized positions first
     setTasks(function(prev){
+      const normalized = {};
+      colTasks.forEach(function(t){ normalized[t.id] = t.position; });
       return prev.map(function(t){
         if (t.id === taskId) return Object.assign({},t,{position:posB});
         if (t.id === swapTask.id) return Object.assign({},t,{position:posA});
+        if (normalized[t.id] !== undefined) return Object.assign({},t,{position:normalized[t.id]});
         return t;
       });
     });
     try {
       await sbFetch("kanban_tasks?id=eq."+taskId, { method:"PATCH", body:JSON.stringify({position:posB}) });
       await sbFetch("kanban_tasks?id=eq."+swapTask.id, { method:"PATCH", body:JSON.stringify({position:posA}) });
+      addLog("✅ Reordenado");
     } catch(e) { addLog("❌ Reorder erro: "+e.message,"error"); }
   }
 
