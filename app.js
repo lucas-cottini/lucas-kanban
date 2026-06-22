@@ -139,8 +139,16 @@ function App() {
     })();
 
     const interval = setInterval(async function() {
+      // Skip poll if a local action happened recently
+      if (window._lastActionTime && Date.now() - window._lastActionTime < 10000) return;
       try {
         const data = await sbFetch("kanban_tasks?order=position.asc");
+        var byCol = {};
+        data.forEach(function(t){ if(!byCol[t.column_id]) byCol[t.column_id]=[]; byCol[t.column_id].push(t); });
+        Object.keys(byCol).forEach(function(col){
+          byCol[col].sort(function(a,b){return (a.position||0)-(b.position||0);});
+          byCol[col].forEach(function(t,i){ t.position = i; });
+        });
         setTasks(data.map(function(t) { return Object.assign({}, t, { tags: parseTags(t.tags) }); }));
       } catch(e) {}
     }, 15000);
@@ -343,18 +351,19 @@ function App() {
     const posA = idx;
     const posB = swapIdx;
     addLog("↕️ Trocando posição " + posA + " com " + posB);
-    // Update local state with all normalized positions first
+    // Update local state immediately with new positions
+    const newPositions = {};
+    colTasks.forEach(function(t){ newPositions[t.id] = t.position; });
+    newPositions[taskId] = posB;
+    newPositions[swapTask.id] = posA;
     setTasks(function(prev){
-      const normalized = {};
-      colTasks.forEach(function(t){ normalized[t.id] = t.position; });
       return prev.map(function(t){
-        if (t.id === taskId) return Object.assign({},t,{position:posB});
-        if (t.id === swapTask.id) return Object.assign({},t,{position:posA});
-        if (normalized[t.id] !== undefined) return Object.assign({},t,{position:normalized[t.id]});
+        if (newPositions[t.id] !== undefined) return Object.assign({},t,{position:newPositions[t.id]});
         return t;
       });
     });
     try {
+      window._lastActionTime = Date.now();
       await sbFetch("kanban_tasks?id=eq."+taskId, { method:"PATCH", body:JSON.stringify({position:posB}) });
       await sbFetch("kanban_tasks?id=eq."+swapTask.id, { method:"PATCH", body:JSON.stringify({position:posA}) });
       addLog("✅ Reordenado");
@@ -453,7 +462,7 @@ function App() {
 
     h('div',{style:{maxWidth:1300,margin:'0 auto',display:'flex',gap:10,overflowX:'auto',paddingBottom:16}},
       COLUMNS.map(function(col){
-        const colTasks = tasks.filter(function(t){return t.column_id===col.id;});
+        const colTasks = tasks.filter(function(t){return t.column_id===col.id;}).sort(function(a,b){return (a.position||0)-(b.position||0);});
         return h('div',{key:col.id,style:{minWidth:185,flex:1,background:'#fff',borderRadius:12,border:'1px solid #E2E8F0',overflow:'hidden',boxShadow:'0 1px 4px rgba(0,0,0,0.05)'}},
           h('div',{style:{padding:'10px 12px',borderBottom:'1px solid #F1F5F9',display:'flex',alignItems:'center',gap:6,background:'#FAFAFA'}},
             h('span',null,col.emoji),
