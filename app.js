@@ -193,7 +193,7 @@ function App() {
 
     const systemPrompt = "Você é um assistente de kanban. Interprete comandos em linguagem natural.\n\nEstado atual:\n" +
       JSON.stringify(tasks.map(function(t) { return { id: t.id, title: t.title, column_id: t.column_id, priority: t.priority, tags: t.tags }; })) +
-      "\n\nColunas: backlog, semana, fazendo, gargalo, feito\nPrioridades: alta, media, normal\nTags: B2B Farming, B2B Hunting, Fundadores, Pessoal, Relacionamento B2B, Conselho\n\nResponda APENAS com um objeto JSON puro, sem markdown, sem backticks, sem texto antes ou depois:\n{\"actions\":[],\"message\":\"\"}";
+      "\n\nColunas: backlog, semana, fazendo, gargalo, feito\nPrioridades: alta, media, normal\nTags: B2B Farming, B2B Hunting, Fundadores, Pessoal, Relacionamento B2B, Conselho\n\nResponda APENAS com um objeto JSON puro, sem markdown, sem backticks, sem texto antes ou depois.\n\nTipos de ação disponíveis:\n- CREATE: {type,task:{title,column_id,priority,tags}}\n- MOVE: {type,taskId,to}\n- UPDATE_PRIORITY: {type,taskId,priority}\n- UPDATE_TAGS: {type,taskId,tags:[...]}\n- DELETE: {type,taskId}\n\nFormato: {\"actions\":[...],\"message\":\"\"}";
 
     try {
       addLog("🤖 Chamando Anthropic...");
@@ -245,6 +245,11 @@ function App() {
         if (!action.to) action.to = action.target_column || action.column_id || action.column;
         // If task fields are at root level, wrap them
         if (!action.task && action.title) action.task = { title: action.title, column_id: action.column_id || action.column || 'semana', priority: action.priority || 'normal', tags: action.tags || [] };
+        // Normalize update_task -> detect what's being updated
+        if (action.type === 'UPDATE_TASK') {
+          if (action.priority) action.type = 'UPDATE_PRIORITY';
+          else if (action.tags) action.type = 'UPDATE_TAGS';
+        }
         addLog("▶️ " + action.type + " " + (action.taskId || (action.task && action.task.title) || action.title || ""));
 
         if (action.type === "CREATE") {
