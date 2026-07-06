@@ -193,7 +193,8 @@ function App() {
 
     const systemPrompt = "Você é um assistente de kanban. Interprete comandos em linguagem natural.\n\nEstado atual:\n" +
       JSON.stringify(tasks.map(function(t) { return { id: t.id, title: t.title, column_id: t.column_id, priority: t.priority, tags: t.tags }; })) +
-      "\n\nColunas: backlog, semana, fazendo, gargalo, feito\nPrioridades: alta, media, normal\nTags: B2B Farming, B2B Hunting, Fundadores, Pessoal, Relacionamento B2B, Conselho\n\nResponda APENAS com um objeto JSON puro, sem markdown, sem backticks, sem texto antes ou depois.\n\nTipos de ação disponíveis:\n- CREATE: {type,task:{title,column_id,priority,tags}}\n- MOVE: {type,taskId,to}\n- UPDATE_PRIORITY: {type,taskId,priority}\n- UPDATE_TAGS: {type,taskId,tags:[...]}\n- DELETE: {type,taskId}\n\nFormato: {\"actions\":[...],\"message\":\"\"}";
+      "\n\nColunas: backlog, semana, fazendo, gargalo, feito\nPrioridades: alta, media, normal\nTags: B2B Farming, B2B Hunting, Fundadores, Pessoal, Relacionamento B2B, Conselho\n\nResponda APENAS com um objeto JSON puro, sem markdown, sem backticks, sem texto antes ou depois.\n\nTipos de ação disponíveis:\n- CREATE: {type,task:{title,column_id,priority,tags}}\n- MOVE: {type,taskId,to}\n- UPDATE_PRIORITY: {type,taskId,priority}\n- UPDATE_TAGS: {type,taskId,tags:[...]}\n- DELETE: {type,taskId}
+- UPDATE_TITLE: {type,taskId,title}\n\nFormato: {\"actions\":[...],\"message\":\"\"}";
 
     try {
       addLog("🤖 Chamando Anthropic...");
@@ -249,6 +250,7 @@ function App() {
         if (action.type === 'UPDATE_TASK') {
           if (action.priority) action.type = 'UPDATE_PRIORITY';
           else if (action.tags) action.type = 'UPDATE_TAGS';
+          else if (action.title) action.type = 'UPDATE_TITLE';
         }
         addLog("▶️ " + action.type + " " + (action.taskId || (action.task && action.task.title) || action.title || ""));
 
@@ -302,6 +304,12 @@ function App() {
           } catch(e) { addLog("❌ PRIORITY erro: " + e.message, "error"); }
           newTasks = newTasks.map(function(t) { return t.id === action.taskId ? Object.assign({}, t, { priority: action.priority }) : t; });
 
+        } else if (action.type === "UPDATE_TITLE") {
+          try {
+            await sbFetch("kanban_tasks?id=eq."+action.taskId, { method:"PATCH", body:JSON.stringify({title:action.title}) });
+            addLog("✅ Título atualizado");
+          } catch(e) { addLog("❌ UPDATE_TITLE erro: "+e.message,"error"); }
+          newTasks = newTasks.map(function(t){ return t.id === action.taskId ? Object.assign({},t,{title:action.title}) : t; });
         } else if (action.type === "UPDATE_TAGS") {
           try {
             await sbFetch("kanban_tasks?id=eq." + action.taskId, {
