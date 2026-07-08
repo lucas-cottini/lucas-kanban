@@ -193,8 +193,7 @@ function App() {
 
     const systemPrompt = "Você é um assistente de kanban. Interprete comandos em linguagem natural.\n\nEstado atual:\n" +
       JSON.stringify(tasks.map(function(t) { return { id: t.id, title: t.title, column_id: t.column_id, priority: t.priority, tags: t.tags }; })) +
-      "\n\nColunas: backlog, semana, fazendo, gargalo, feito\nPrioridades: alta, media, normal\nTags: B2B Farming, B2B Hunting, Fundadores, Pessoal, Relacionamento B2B, Conselho\n\nResponda APENAS com um objeto JSON puro, sem markdown, sem backticks, sem texto antes ou depois.\n\nTipos de ação disponíveis:\n- CREATE: {type,task:{title,column_id,priority,tags}}\n- MOVE: {type,taskId,to}\n- UPDATE_PRIORITY: {type,taskId,priority}\n- UPDATE_TAGS: {type,taskId,tags:[...]}\n- DELETE: {type,taskId}
-- UPDATE_TITLE: {type,taskId,title}\n\nFormato: {\"actions\":[...],\"message\":\"\"}";
+      "\n\nColunas: backlog, semana, fazendo, gargalo, feito\nPrioridades: alta, media, normal\nTags: B2B Farming, B2B Hunting, Fundadores, Pessoal, Relacionamento B2B, Conselho\n\nResponda APENAS com um objeto JSON puro, sem markdown, sem backticks, sem texto antes ou depois.\n\nTipos de ação disponíveis:\n- CREATE: {type,task:{title,column_id,priority,tags}}\n- MOVE: {type,taskId,to}\n- UPDATE_PRIORITY: {type,taskId,priority}\n- UPDATE_TAGS: {type,taskId,tags:[...]}\n- DELETE: {type,taskId}\n- UPDATE_TITLE: {type,taskId,title}\n\nFormato: {\"actions\":[...],\"message\":\"\"}";
 
     try {
       addLog("🤖 Chamando Anthropic...");
